@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>xCall // 面接シミュレーター</title>
+<style>
+  :root{
+    --bg-void:#08060d;
+    --bg-panel:#100b1a;
+    --neon-cyan:#00fff2;
+    --neon-magenta:#ff2ec4;
+    --neon-purple:#9d4bff;
+    --neon-purple-dim:#5a2ea6;
+    --metal-hi:#e8e8f0;
+    --metal-lo:#2a2735;
+    --text-dim:#8a84a3;
+    --font-display:'Cyber', 'Impact', 'Arial Narrow', sans-serif;
+  }
+
+  @font-face {
+    font-family:'Cyber';
+    src: local('Arial Narrow Bold');
+  }
+
+  *{ box-sizing:border-box; }
+
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg-void);
+    font-family:'Courier New', monospace;
+    color:#e6e2f5;
+    overflow:hidden;
+  }
+
+  /* ---------- background texture ---------- */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 3px),
+      radial-gradient(circle at 15% 20%, rgba(157,75,255,0.18), transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(0,255,242,0.12), transparent 45%),
+      radial-gradient(circle at 90% 10%, rgba(255,46,196,0.10), transparent 40%);
+    pointer-events:none;
+    z-index:0;
+  }
+
+  body::after{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(157,75,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(157,75,255,0.05) 1px, transparent 1px);
+    background-size:38px 38px;
+    pointer-events:none;
+    z-index:0;
+    mask-image:linear-gradient(to bottom, transparent, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.6) 70%, transparent);
+  }
+
+  .kanji-drip{
+    position:fixed;
+    font-family:'MS Mincho','Hiragino Mincho ProN',serif;
+    color:rgba(255,46,196,0.08);
+    font-size:15vw;
+    top:-4vw; right:-2vw;
+    letter-spacing:0.1em;
+    writing-mode:vertical-rl;
+    pointer-events:none;
+    z-index:0;
+    user-select:none;
+  }
+
+  /* ---------- top progress strip ---------- */
+  .progress-shell{
+    position:fixed; top:0; left:0; right:0;
+    height:34px;
+    z-index:20;
+    background:linear-gradient(180deg, #050308, rgba(5,3,8,0.4));
+    border-bottom:1px solid rgba(157,75,255,0.35);
+    display:flex; align-items:center;
+    padding:0 18px;
+    gap:14px;
+  }
+  .progress-label{
+    font-size:10px;
+    letter-spacing:0.2em;
+    color:var(--neon-cyan);
+    text-shadow:0 0 6px rgba(0,255,242,0.8);
+    white-space:nowrap;
+    min-width:64px;
+  }
+  .progress-track{
+    position:relative;
+    flex:1;
+    height:9px;
+    background:#0d0a16;
+    border:1px solid rgba(255,255,255,0.08);
+    overflow:hidden;
+    clip-path:polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  }
+  .progress-fill{
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg, var(--neon-purple), var(--neon-magenta), var(--neon-cyan));
+    background-size:200% 100%;
+    animation:flow 3s linear infinite;
+    box-shadow:0 0 10px var(--neon-magenta), 0 0 20px rgba(0,255,242,0.6);
+    transition:width 0.5s cubic-bezier(.4,0,.2,1);
+  }
+  @keyframes flow{
+    0%{ background-position:0% 0; }
+    100%{ background-position:200% 0; }
+  }
+  .progress-count{
+    font-size:10px;
+    color:var(--text-dim);
+    letter-spacing:0.15em;
+    min-width:54px;
+    text-align:right;
+  }
+
+  /* ---------- layout ---------- */
+  .stage{
+    position:relative;
+    z-index:1;
+    display:flex;
+    height:100vh;
+    padding-top:34px;
+  }
+
+  /* left: interviewer */
+  .interviewer-col{
+    position:relative;
+    width:38%;
+    min-width:280px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    border-right:1px solid rgba(157,75,255,0.3);
+    background:
+      linear-gradient(180deg, rgba(157,75,255,0.06), transparent 40%, transparent 60%, rgba(0,255,242,0.05));
+    overflow:hidden;
+  }
+
+  .interviewer-frame{
+    position:relative;
+    width:78%;
+    max-width:380px;
+    aspect-ratio:1/1;
+    border-radius:6px;
+  }
+
+  .interviewer-frame img{
+    width:100%; height:100%;
+    object-fit:cover;
+    border-radius:4px;
+    filter:saturate(1.2) contrast(1.05);
+    box-shadow:
+      0 0 25px rgba(157,75,255,0.55),
+      0 0 60px rgba(0,255,242,0.25),
+      inset 0 0 30px rgba(0,0,0,0.4);
+    border:1px solid rgba(0,255,242,0.4);
+  }
+
+  .interviewer-frame::before{
+    content:"";
+    position:absolute; inset:-6px;
+    border:1px solid var(--neon-cyan);
+    border-radius:8px;
+    opacity:0.5;
+    animation:frame-pulse 2.6s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes frame-pulse{
+    0%,100%{ box-shadow:0 0 8px var(--neon-cyan); opacity:0.35;}
+    50%{ box-shadow:0 0 22px var(--neon-cyan); opacity:0.85;}
+  }
+
+  .scanline{
+    position:absolute; inset:0;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0.15) 2px, transparent 4px);
+    mix-blend-mode:overlay;
+    pointer-events:none;
+    border-radius:4px;
+  }
+
+  .interviewer-tag{
+    margin-top:22px;
+    text-align:center;
+  }
+  .interviewer-tag .name{
+    font-family:var(--font-display);
+    font-size:22px;
+    letter-spacing:0.15em;
+    color:#fff;
+    text-transform:uppercase;
+    text-shadow:
+      2px 0 var(--neon-magenta),
+      -2px 0 var(--neon-cyan);
+    animation:name-glitch 5s infinite;
+  }
+  .interviewer-tag .sub{
+    margin-top:6px;
+    font-size:10px;
+    letter-spacing:0.3em;
+    color:var(--text-dim);
+  }
+  .interviewer-tag .jp{
+    font-family:'MS Mincho','Hiragino Mincho ProN',serif;
+    font-size:13px;
+    color:var(--neon-purple);
+    letter-spacing:0.2em;
+    margin-top:4px;
+  }
+
+  @keyframes name-glitch{
+    0%,92%,100%{ text-shadow:2px 0 var(--neon-magenta), -2px 0 var(--neon-cyan); transform:translate(0,0); }
+    93%{ text-shadow:-3px 0 var(--neon-magenta), 3px 0 var(--neon-cyan); transform:translate(-2px,1px); }
+    94%{ text-shadow:3px 0 var(--neon-cyan), -3px 0 var(--neon-magenta); transform:translate(2px,-1px); }
+    95%{ text-shadow:2px 0 var(--neon-magenta), -2px 0 var(--neon-cyan); transform:translate(0,0); }
+  }
+
+  .status-line{
+    position:absolute;
+    bottom:18px; left:18px; right:18px;
+    display:flex;
+    justify-content:space-between;
+    font-size:9px;
+    letter-spacing:0.15em;
+    color:var(--neon-cyan);
+    opacity:0.7;
+  }
+  .status-line .dot{
+    display:inline-block;
+    width:6px; height:6px;
+    background:var(--neon-magenta);
+    border-radius:50%;
+    margin-right:6px;
+    box-shadow:0 0 6px var(--neon-magenta);
+    animation:blink 1.4s infinite;
+  }
+  @keyframes blink{ 50%{ opacity:0.2; } }
+
+  /* right: question panel */
+  .question-col{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:6vh 6vw;
+    position:relative;
+  }
+
+  .category-tag{
+    display:inline-block;
+    align-self:flex-start;
+    font-size:11px;
+    letter-spacing:0.25em;
+    color:var(--bg-void);
+    background:var(--neon-cyan);
+    padding:4px 12px;
+    text-transform:uppercase;
+    clip-path:polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+    box-shadow:0 0 12px rgba(0,255,242,0.6);
+    margin-bottom:22px;
+  }
+
+  .question-shell{
+    position:relative;
+    background:linear-gradient(160deg, rgba(20,14,32,0.85), rgba(12,8,20,0.85));
+    border:1px solid rgba(157,75,255,0.4);
+    padding:38px 42px;
+    min-height:200px;
+    display:flex;
+    align-items:center;
+    box-shadow:
+      0 0 0 1px rgba(0,255,242,0.08),
+      0 0 30px rgba(157,75,255,0.15),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .question-shell::before{
+    content:"";
+    position:absolute; top:0; left:0;
+    width:24px; height:24px;
+    border-top:2px solid var(--neon-magenta);
+    border-left:2px solid var(--neon-magenta);
+  }
+  .question-shell::after{
+    content:"";
+    position:absolute; bottom:0; right:0;
+    width:24px; height:24px;
+    border-bottom:2px solid var(--neon-cyan);
+    border-right:2px solid var(--neon-cyan);
+  }
+
+  .q-number{
+    font-family:var(--font-display);
+    font-size:13px;
+    letter-spacing:0.2em;
+    color:var(--neon-magenta);
+    margin-bottom:10px;
+    display:block;
+  }
+
+  .q-text{
+    font-size:clamp(20px, 2.4vw, 32px);
+    line-height:1.45;
+    color:#f1eefc;
+    font-weight:600;
+    text-shadow:0 0 18px rgba(0,255,242,0.15);
+  }
+
+  .q-fade{
+    animation:qfade 0.45s ease;
+  }
+  @keyframes qfade{
+    0%{ opacity:0; transform:translateX(14px) skewX(-2deg); filter:blur(2px); }
+    100%{ opacity:1; transform:translateX(0) skewX(0); filter:blur(0); }
+  }
+
+  /* nav buttons */
+  .nav-row{
+    display:flex;
+    gap:22px;
+    margin-top:38px;
+    align-items:center;
+  }
+
+  .neo-btn{
+    position:relative;
+    font-family:var(--font-display);
+    font-size:13px;
+    letter-spacing:0.25em;
+    text-transform:uppercase;
+    color:#dff9ff;
+    background:linear-gradient(160deg,#1b1626,#0c0913);
+    border:1px solid rgba(0,255,242,0.5);
+    padding:14px 30px;
+    cursor:pointer;
+    overflow:hidden;
+    clip-path:polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+    transition:transform 0.15s ease, box-shadow 0.2s ease;
+    box-shadow:0 0 10px rgba(0,255,242,0.25), inset 0 0 12px rgba(157,75,255,0.15);
+  }
+  .neo-btn::before{
+    content:"";
+    position:absolute; top:0; left:-60%;
+    width:40%; height:100%;
+    background:linear-gradient(120deg, transparent, rgba(255,255,255,0.55), transparent);
+    transform:skewX(-20deg);
+    transition:left 0.5s ease;
+  }
+  .neo-btn:hover:not(:disabled)::before{ left:130%; }
+  .neo-btn:hover:not(:disabled){
+    color:#fff;
+    box-shadow:0 0 18px var(--neon-cyan), 0 0 34px rgba(255,46,196,0.4);
+    transform:translateY(-2px);
+    border-color:var(--neon-magenta);
+  }
+  .neo-btn:active:not(:disabled){
+    transform:translateY(0px) scale(0.98);
+  }
+  .neo-btn:disabled{
+    opacity:0.3;
+    cursor:not-allowed;
+    filter:grayscale(0.6);
+  }
+  .neo-btn.glitching:not(:disabled){
+    animation:btn-glitch 0.35s steps(2,end);
+  }
+  @keyframes btn-glitch{
+    0%{ clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%); }
+    25%{ transform:translate(-2px,1px); text-shadow:2px 0 var(--neon-magenta),-2px 0 var(--neon-cyan); }
+    50%{ transform:translate(2px,-1px); text-shadow:-2px 0 var(--neon-cyan),2px 0 var(--neon-magenta); }
+    75%{ transform:translate(-1px,0px); }
+    100%{ transform:translate(0,0); text-shadow:none; }
+  }
+
+  .jump-hint{
+    font-size:10px;
+    color:var(--text-dim);
+    letter-spacing:0.15em;
+    margin-left:auto;
+  }
+
+  footer.chip{
+    position:absolute;
+    bottom:22px; right:6vw;
+    font-size:9px;
+    letter-spacing:0.2em;
+    color:rgba(138,132,163,0.6);
+  }
+
+  /* responsive */
+  @media (max-width: 880px){
+    .stage{ flex-direction:column; height:auto; min-height:100vh; }
+    .interviewer-col{
+      width:100%; border-right:none;
+      border-bottom:1px solid rgba(157,75,255,0.3);
+      padding:24px 0 12px;
+    }
+    .interviewer-frame{ width:52%; max-width:220px; }
+    .question-col{ padding:5vh 6vw 8vh; }
+    .question-shell{ padding:26px; min-height:auto; }
+    .nav-row{ flex-wrap:wrap; }
+    .jump-hint{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="kanji-drip">面接訓練</div>
+
+<div class="progress-shell">
+  <div class="progress-label">進捗 // PROGRESS</div>
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="progress-count" id="progressCount">01 / 00</div>
+</div>
+
+<div class="stage">
+  <div class="interviewer-col">
+    <div class="interviewer-frame">
+      <img src="https://gusmodekai.github.io/jobinter/interviewer.gif" alt="Cyberpunk AI Interviewer">
+      <div class="scanline"></div>
+    </div>
+    <div class="interviewer-tag">
+      <div class="name">UNIT&nbsp;9-KAI</div>
+      <div class="jp">面接官ユニット</div>
+      <div class="sub">xCALL CENTER // RECRUITMENT AI</div>
+    </div>
+    <div class="status-line">
+      <span><span class="dot"></span>LIVE FEED</span>
+      <span id="clock">00:00:00</span>
+    </div>
+  </div>
+
+  <div class="question-col">
+    <div class="category-tag" id="categoryTag">CATEGORY</div>
+    <div class="question-shell">
+      <div>
+        <span class="q-number" id="qNumber">Q.01</span>
+        <div class="q-text q-fade" id="qText">Loading question...</div>
+      </div>
+    </div>
+    <div class="nav-row">
+      <button class="neo-btn" id="prevBtn">‹ PREV</button>
+      <button class="neo-btn" id="nextBtn">NEXT ›</button>
+      <span class="jump-hint">USE ← → ARROW KEYS TO NAVIGATE</span>
+    </div>
+    <footer class="chip">SYS.xCALL / MOCK INTERVIEW MODULE v2.1</footer>
+  </div>
+</div>
+
+<script>
+  const data = [
+    { cat:"About You and Your Experience", items:[
+      "Describe yourself - Tell me about you?",
+      "Why do you want to work for xCall Center / our company?",
+      "Why should we hire you?",
+      "What are your strengths and weaknesses?",
+      "What is your greatest achievement or accomplishment?",
+      "Where do you see yourself in 5 years?",
+      "Tell me about a time when you failed.",
+      "Tell me about a time when you were successful.",
+      "Tell me about a time when you motivated someone.",
+      "What is the most important thing you've learned at school?",
+      "What do you like to do in your spare time?",
+      "Tell us one thing about yourself you wouldn't want us to know.",
+      "Do you consider yourself successful?",
+      "If you were an animal, what would you be?",
+      "How does your best friend describe you?",
+      "Characterize yourself in one sentence.",
+      "If you were to characterize your personality in three words only, what would you say?",
+      "Who has inspired you in your life and why?",
+      "Are you a better planner or implementer?",
+      "What kind of books do you read? What was the last book you read?",
+      "What kinds of people do you find it difficult to work with?",
+      "Tell me about your dream job/company?",
+      "How do you define success and how do you measure up to your own definition?",
+      "What are your hobbies and interests?",
+      "What are you passionate about?",
+      "Why did you quit your previous job?",
+      "If you had the opportunity to travel to another country, which one would it be and why?"
+    ]},
+    { cat:"On Skills and Work Situations", items:[
+      "How do you handle stressful situations?",
+      "How do you handle an angry customer?",
+      "Are you a team player?",
+      "Do you work better alone or as part of a team?",
+      "How do you motivate yourself in the job?",
+      "Do you sometimes get angry at work? If yes, why?",
+      "How do you deal with criticism?",
+      "How do you prioritize tasks?",
+      "What does customer satisfaction mean to you?",
+      "What customer services experience do you have?"
+    ]},
+    { cat:"On Availability and Expectations", items:[
+      "What are your salary expectations?",
+      "Are you willing to work overtime?",
+      "What is your time availability?"
+    ]},
+    { cat:"Describe a Process Questions", items:[
+      "How would you describe the process of making a sandwich?",
+      "How would you explain how to tie a shoelace to someone who has never done it before?",
+      "Imagine you need to help a customer set up Wi-Fi on their phone for the first time. How would you walk them through that process?",
+      "Describe the steps you would take to write an email to a client.",
+      "How would you describe the process of reserving a movie ticket online?"
+    ]}
+  ];
+
+  // Flatten into a single ordered list, keeping category + local index
+  const questions = [];
+  data.forEach(section => {
+    section.items.forEach((text, i) => {
+      questions.push({ cat: section.cat, num: i + 1, text });
+    });
+  });
+
+  const total = questions.length;
+  let current = 0;
+
+  const qText = document.getElementById('qText');
+  const qNumber = document.getElementById('qNumber');
+  const categoryTag = document.getElementById('categoryTag');
+  const progressFill = document.getElementById('progressFill');
+  const progressCount = document.getElementById('progressCount');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+
+  function pad(n){ return n.toString().padStart(2,'0'); }
+
+  function render(){
+    const q = questions[current];
+    categoryTag.textContent = q.cat;
+    qNumber.textContent = `Q.${pad(q.num)}`;
+    qText.textContent = q.text;
+
+    qText.classList.remove('q-fade');
+    void qText.offsetWidth;
+    qText.classList.add('q-fade');
+
+    const pct = ((current + 1) / total) * 100;
+    progressFill.style.width = pct + '%';
+    progressCount.textContent = `${pad(current+1)} / ${pad(total)}`;
+
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === total - 1;
+  }
+
+  function glitchPulse(btn){
+    btn.classList.remove('glitching');
+    void btn.offsetWidth;
+    btn.classList.add('glitching');
+  }
+
+  function goNext(){
+    if(current < total - 1){
+      current++;
+      glitchPulse(nextBtn);
+      render();
+    }
+  }
+  function goPrev(){
+    if(current > 0){
+      current--;
+      glitchPulse(prevBtn);
+      render();
+    }
+  }
+
+  nextBtn.addEventListener('click', goNext);
+  prevBtn.addEventListener('click', goPrev);
+
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowRight') goNext();
+    if(e.key === 'ArrowLeft') goPrev();
+  });
+
+  // fake live clock for atmosphere
+  const clockEl = document.getElementById('clock');
+  function tick(){
+    const d = new Date();
+    clockEl.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  render();
+</script>
+
+</body>
+</html>
