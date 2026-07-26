@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Guía Cyberpunk: Reparar NTFS</title>
+  <style>
+    body {
+      background-color: #0a0a0a;
+      color: #00ff9f;
+      font-family: "Courier New", monospace;
+      margin: 0;
+      padding: 20px;
+    }
+    h1, h2 {
+      color: #ff00ff;
+      text-shadow: 0 0 5px #ff00ff;
+    }
+    .neon-box {
+      border: 2px solid #00ffff;
+      padding: 15px;
+      margin: 20px 0;
+      box-shadow: 0 0 10px #00ffff;
+    }
+    code {
+      background: #111;
+      color: #00ff9f;
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+    .ascii {
+      color: #ff00ff;
+      font-size: 12px;
+      white-space: pre;
+    }
+    a {
+      color: #00ffff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-shadow: 0 0 5px #00ffff;
+    }
+  </style>
+</head>
+<body>
+  <h1>⚡ Guía Cyberpunk: Reparar discos NTFS dañados ⚡</h1>
+
+  <div class="ascii">
+    ░█▀▀░█░█░█▀█░█▀█░█▀█░█▄█  
+    ░█░█░█░█░█▀▀░█░█░█▀█░█░█  
+    ░▀▀▀░▀▀▀░▀░░░▀▀▀░▀░▀░▀░▀  
+  </div>
+
+  <h2>1. Detectar el problema</h2>
+  <div class="neon-box">
+    - En Linux: error <code>$MFTMirr does not match $MFT</code>.  
+    - En Windows: pide reparar la unidad al conectarla.  
+    - Síntoma: aparece el disco pero no se puede asignar letra en Administración de discos.
+  </div>
+
+  <h2>2. Reparar con TestDisk (Linux)</h2>
+  <div class="neon-box">
+    <code>sudo testdisk</code>  
+    - Selecciona el disco dañado.  
+    - <b>Analyse → Quick Search</b> para detectar particiones.  
+    - Si aparece la partición NTFS, pulsa <b>P</b> para listar archivos.  
+    - Si los ves, pulsa <b>q</b> para salir y luego <b>Write</b> para reescribir la tabla de particiones.  
+    - Reinicia el sistema.
+  </div>
+
+  <h2>3. Reparar con CHKDSK (Windows)</h2>
+  <div class="neon-box">
+    - Conecta el disco en Windows.  
+    - Si pide reparar, abre CMD como administrador:  
+    <code>chkdsk /f D:</code>  
+    *(reemplaza D: por la letra asignada)*  
+    - Reinicia Windows.  
+    - El disco debería funcionar en Windows y Linux.
+  </div>
+
+  <h2>4. Prevención</h2>
+  <div class="neon-box">
+    - Usa un <b>adaptador USB–SATA confiable</b>.  
+    - Siempre <b>expulsa</b> el disco antes de desconectarlo.  
+    - Si lo usas en Windows, Linux y Google TV: considera <b>exFAT</b> para mayor compatibilidad y menos corrupción.  
+  </div>
+
+  <h2>5. Formatear a exFAT (opcional)</h2>
+  <div class="neon-box">
+    En Linux:  
+    <code>sudo mkfs.exfat /dev/sdX1</code>  
+    En Windows:  
+    - Explorador → clic derecho en el disco → Formatear → exFAT.  
+  </div>
+
+  <footer>
+    <p>✦ Estética cyberpunk hacker japonesa ✦ Guardado en GitHub para futuras batallas ✦</p>
+  </footer>
+</body>
+</html>
